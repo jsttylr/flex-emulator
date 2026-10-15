@@ -1,0 +1,42 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test -race ./...
+      - name: Build all platforms
+        run: |
+          mkdir -p dist
+          build() {
+            CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -trimpath -ldflags="-s -w $4" -o "dist/$3" .
+          }
+          build windows amd64 flex-emulator.exe "-H windowsgui"
+          (cd dist && zip -q -j flex-emulator-windows.zip flex-emulator.exe ../README.md && rm flex-emulator.exe)
+          build darwin arm64 flex-emulator-mac-apple-silicon
+          build darwin amd64 flex-emulator-mac-intel
+          build linux amd64 flex-emulator-linux
+          build linux arm64 flex-emulator-raspberry-pi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flex-emulator
+          path: dist/*
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes

@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flex Emulator</title>
+<style>
+:root {
+  --bg: #f4f5f7; --card: #fff; --text: #1d2330; --muted: #667085; --line: #d9dde3;
+  --accent: #2463eb; --ok: #157f3b; --warn: #b54708; --bad: #c0262d; --tx: #d92d20;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14171c; --card: #1d2128; --text: #e6e8eb; --muted: #98a2b3; --line: #313844;
+          --accent: #5b8def; --ok: #4ac26b; --warn: #f0a33a; --bad: #f2626a; --tx: #ff5a4f; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+header { padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--card); display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+header h1 { font-size: 20px; margin: 0; }
+header .sub { color: var(--muted); }
+main { max-width: 1000px; margin: 0 auto; padding: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+h2 { font-size: 17px; margin: 0 0 10px; }
+h3 { font-size: 14px; margin: 14px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.live { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; }
+.freq { font: 600 30px/1 var(--mono); }
+.pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; border: 1px solid currentColor; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+.txon { background: var(--tx); color: #fff; border-color: var(--tx); }
+.muted { color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 10px 14px; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+input, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; }
+input[type=checkbox] { width: 18px; height: 18px; }
+.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); }
+button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 6px; padding: 7px 14px; cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.danger { color: var(--bad); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.help { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+details summary { cursor: pointer; color: var(--muted); margin-top: 12px; }
+#log { font: 12px/1.4 var(--mono); height: 320px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; white-space: pre-wrap; word-break: break-all; }
+#log .in { color: var(--accent); }
+.savebar { position: sticky; bottom: 0; background: var(--card); border-top: 1px solid var(--line); padding: 12px 16px; display: flex; gap: 12px; align-items: center; justify-content: flex-end; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Flex Emulator</h1>
+  <span class="sub" id="hdr">Makes your other radios look like a FlexRadio to the Antenna Genius and friends.</span>
+</header>
+<main>
+  <div id="down" class="card bad" style="display:none"><b>The emulator isn't running.</b> Double-click flex-emulator.exe to start it again, then reload this page.</div>
+  <div id="live"></div>
+
+  <div class="card">
+    <h2>Settings</h2>
+    <div class="grid">
+      <label>Network address to advertise
+        <select id="bind_ip"></select>
+      </label>
+    </div>
+    <p class="help">Leave on Automatic unless this computer has more than one network connection.</p>
+    <div id="radios"></div>
+    <div class="row" style="margin-top:12px"><button onclick="addRadio()">+ Add another radio</button></div>
+  </div>
+
+  <div class="card">
+    <h2>Activity</h2>
+    <div class="row" style="margin-bottom:8px">
+      <label class="check"><input type="checkbox" id="onlyapi" checked> Only show what accessories send</label>
+      <button onclick="copyLog()">Copy log</button>
+    </div>
+    <div id="log"></div>
+    <p class="help">Lines starting with ← are what an accessory (like the Antenna Genius) asked for. If something doesn't follow, copy this log and send it over.</p>
+  </div>
+</main>
+<div class="savebar">
+  <button onclick="quitApp()" style="margin-right:auto">Stop emulator</button>
+  <span id="savemsg" class="muted"></span>
+  <button class="primary" onclick="save()">Save and restart</button>
+</div>
+
+<script>
+const SOURCES = {
+  manual:          { label: "Manual (for testing, no radio)", fields: [] },
+  civ:             { label: "Icom CI-V, USB cable (IC-7300, IC-705, IC-7610…)", fields: ["serial_port", "baud", "civ_address", "poll_ms"],
+                     help: "Only works if no other program has the radio's COM port open. If you also use logging or WSJT-X, use rigctld or flrig instead." },
+  rigctld:         { label: "Hamlib rigctld (lets several programs share one radio)", fields: ["host", "port", "poll_ms"],
+                     help: "rigctld normally uses port 4532." },
+  "kenwood-tcp":   { label: "Kenwood-style CAT over network (Thetis TCP CAT)", fields: ["host", "port", "poll_ms"],
+                     help: "For Thetis versions with a TCP/IP CAT server, use the port shown in Thetis's CAT setup." },
+  "kenwood-serial":{ label: "Kenwood-style CAT on a COM port (Thetis virtual COM, Kenwood, Elecraft)", fields: ["serial_port", "baud", "poll_ms"],
+                     help: "For Thetis, use one end of a virtual COM pair (VSPE/com0com) with Thetis CAT on the other end." },
+  tci:             { label: "TCI (Thetis, ExpertSDR, AetherSDR)", fields: ["host", "port"],
+                     help: "TCI servers usually use port 40001. Turn the TCI server on in the SDR program first." },
+};
+const FIELD_LABELS = { serial_port: "COM / serial port", baud: "Baud rate", civ_address: "CI-V address (hex, IC-7300 = 94)",
+  host: "Computer running it (127.0.0.1 = this one)", port: "Port", poll_ms: "Check every (ms)" };
+
+let cfg = null, opts = { serial_ports: [], ips: [], auto_ip: "" }, logSeq = 0, logLines = [];
+
+async function api(path, body) {
+  const init = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "X-Flex-Emu": "1" }, body: JSON.stringify(body) };
+  const r = await fetch(path, init);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+async function load() {
+  [cfg, opts] = await Promise.all([api("/api/config"), api("/api/options")]);
+  renderSettings();
+}
+
+function renderSettings() {
+  const ipSel = document.getElementById("bind_ip");
+  ipSel.innerHTML = `<option value="">Automatic (${esc(opts.auto_ip)})</option>` +
+    opts.ips.map(ip => `<option ${ip === cfg.bind_ip ? "selected" : ""}>${esc(ip)}</option>`).join("");
+  document.getElementById("radios").innerHTML = cfg.radios.map((r, i) => radioForm(r, i)).join("");
+}
+
+function radioForm(r, i) {
+  const s = r.source, src = SOURCES[s.type] || SOURCES.manual;
+  const fld = f => {
+    if (f === "serial_port") {
+      const ports = [...new Set([...(opts.serial_ports || []), s.serial_port].filter(Boolean))];
+      return `<label>${FIELD_LABELS[f]}<select data-i="${i}" data-src="serial_port">
+        <option value="">— choose —</option>${ports.map(p => `<option ${p === s.serial_port ? "selected" : ""}>${esc(p)}</option>`).join("")}</select></label>`;
+    }
+    const type = ["baud", "port", "poll_ms"].includes(f) ? "number" : "text";
+    return `<label>${FIELD_LABELS[f]}<input type="${type}" data-i="${i}" data-src="${f}" value="${esc(s[f])}"></label>`;
+  };
+  return `<div class="card" style="margin-top:14px">
+    <div class="row" style="justify-content:space-between">
+      <h2>Radio ${i + 1}: ${esc(r.nickname || "unnamed")}</h2>
+      <div class="row">
+        <label class="check"><input type="checkbox" data-i="${i}" data-k="enabled" ${r.enabled ? "checked" : ""}> On</label>
+        ${cfg.radios.length > 1 ? `<button class="danger" onclick="removeRadio(${i})">Remove</button>` : ""}
+      </div>
+    </div>
+    <div class="grid">
+      <label>Name shown to accessories<input data-i="${i}" data-k="nickname" value="${esc(r.nickname)}"></label>
+      <label>Callsign<input data-i="${i}" data-k="callsign" value="${esc(r.callsign)}"></label>
+    </div>
+    <h3>Where the frequency comes from</h3>
+    <div class="grid">
+      <label style="grid-column:1/-1">Input<select data-i="${i}" data-src="type" onchange="changeType(${i}, this.value)">
+        ${Object.entries(SOURCES).map(([k, v]) => `<option value="${k}" ${k === s.type ? "selected" : ""}>${esc(v.label)}</option>`).join("")}
+      </select></label>
+      ${src.fields.map(fld).join("")}
+    </div>
+    ${src.help ? `<p class="help">${esc(src.help)}</p>` : ""}
+    <details><summary>Advanced (what the fake Flex claims to be)</summary>
+      <div class="grid" style="margin-top:8px">
+        <label>Model<input data-i="${i}" data-k="model" value="${esc(r.model)}"></label>
+        <label>Serial number (must differ from your real Flexes)<input data-i="${i}" data-k="serial" value="${esc(r.serial)}"></label>
+        <label>Firmware version<input data-i="${i}" data-k="version" value="${esc(r.version)}"></label>
+        <label>API port<input type="number" data-i="${i}" data-k="api_port" value="${esc(r.api_port)}"></label>
+        <label>RX antenna name<input data-i="${i}" data-k="rx_ant" value="${esc(r.rx_ant)}"></label>
+        <label>TX antenna name<input data-i="${i}" data-k="tx_ant" value="${esc(r.tx_ant)}"></label>
+      </div>
+      <p class="help">Each radio needs its own API port. Accessories may only look for 4992, so a second radio on another port may not be found.</p>
+    </details>
+  </div>`;
+}
+
+// Copy the form back into cfg.
+function readForm() {
+  document.querySelectorAll("[data-i]").forEach(el => {
+    const r = cfg.radios[+el.dataset.i];
+    const val = el.type === "checkbox" ? el.checked : el.type === "number" ? +el.value : el.value;
+    if (el.dataset.k) r[el.dataset.k] = val;
+    if (el.dataset.src) r.source[el.dataset.src] = val;
+  });
+  cfg.bind_ip = document.getElementById("bind_ip").value;
+}
+function changeType(i, t) { readForm(); cfg.radios[i].source.type = t; renderSettings(); }
+function addRadio() {
+  readForm();
+  const n = cfg.radios.length + 1;
+  const base = JSON.parse(JSON.stringify(cfg.radios[0]));
+  Object.assign(base, { nickname: "Radio " + n, serial: "9999-0000-0000-000" + n, api_port: 4992 + n * 10, enabled: true });
+  base.source = { ...base.source, type: "manual" };
+  cfg.radios.push(base); renderSettings();
+}
+function removeRadio(i) { readForm(); cfg.radios.splice(i, 1); renderSettings(); }
+
+async function save() {
+  readForm();
+  const msg = document.getElementById("savemsg");
+  msg.textContent = "Saving…";
+  try {
+    await api("/api/config", cfg);
+    msg.textContent = "Saved. Restarting radios…";
+    setTimeout(async () => { await load(); msg.textContent = "Saved."; }, 1500);
+  } catch (e) {
+    msg.textContent = e instanceof TypeError ? "Couldn't save: the emulator isn't running." : "Couldn't save: " + e.message;
+  }
+}
+
+// --- live status ---
+const BANDS = [["160m", 1840000], ["80m", 3573000], ["40m", 7074000], ["30m", 10136000], ["20m", 14074000],
+               ["17m", 18100000], ["15m", 21074000], ["12m", 24915000], ["10m", 28074000], ["6m", 50313000]];
+
+async function refresh() {
+  let st;
+  try { st = await api("/api/status"); } catch { document.getElementById("down").style.display = ""; document.getElementById("hdr").textContent = "Not running"; return; }
+  document.getElementById("down").style.display = "none";
+  document.getElementById("hdr").textContent = `v${st.version} · advertising on ${st.ip}`;
+  const box = document.getElementById("live");
+  const editing = box.contains(document.activeElement) && document.activeElement.tagName === "INPUT";
+  if (editing) return;
+  box.innerHTML = st.radios.map(r => {
+    const rc = cfg?.radios[r.index] || {};
+    if (rc.enabled === false) return "";
+    if (!r.ip) return `<div class="card"><h2>${esc(rc.nickname)}</h2><span class="pill bad">Not running</span> <span class="bad">${esc(r.error)}</span></div>`;
+    const s = r.state, manual = rc.source?.type === "manual";
+    const conn = s.connected ? `<span class="pill ok">Radio connected</span>` : `<span class="pill warn">Waiting for radio</span>`;
+    const acc = r.clients.length ? r.clients.map(c => `<div>• ${esc(c)}</div>`).join("") : `<span class="muted">No accessories connected yet</span>`;
+    return `<div class="card">
+      <div class="row" style="justify-content:space-between"><h2>${esc(r.nickname)}</h2><span class="muted">${esc(r.ip)}:${r.port}</span></div>
+      <div class="live">
+        <div class="freq">${(s.freq_hz / 1e6).toFixed(6)} <span style="font-size:16px">MHz</span></div>
+        <div>${esc(s.mode)}</div>
+        <span class="pill ${s.ptt ? "txon" : ""}">${s.ptt ? "TX" : "RX"}</span>
+        ${conn}
+      </div>
+      ${r.error ? `<p class="bad">${esc(r.error)}</p>` : ""}
+      <h3>Accessories connected</h3>${acc}
+      ${manual ? `<h3>Test by hand</h3><div class="row">
+        ${BANDS.map(([b, f]) => `<button onclick="manual(${r.index},{freq_hz:${f}})">${b}</button>`).join("")}
+        <input id="mf${r.index}" placeholder="MHz e.g. 7.150" size="10" onkeydown="if(event.key==='Enter')manualFreq(${r.index})">
+        <button onclick="manualFreq(${r.index})">Set</button>
+        <button onclick="manual(${r.index},{ptt:${!s.ptt}})">${s.ptt ? "Unkey" : "Key TX"}</button></div>` : ""}
+    </div>`;
+  }).join("");
+}
+async function quitApp() {
+  if (!confirm("Stop the emulator? Accessories will stop following your radio until you start it again.")) return;
+  try { await api("/api/quit", {}); } catch {}
+  document.getElementById("down").style.display = "";
+}
+async function manual(i, body) { try { await api("/api/manual", { radio: i, ...body }); refresh(); } catch (e) { alert(e.message); } }
+function manualFreq(i) { const v = parseFloat(document.getElementById("mf" + i).value); if (v > 0) manual(i, { freq_hz: Math.round(v * 1e6) }); }
+
+async function pollLog() {
+  try {
+    const lines = await api("/api/log?since=" + logSeq);
+    if (lines.length) { logSeq = lines[lines.length - 1].seq; logLines.push(...lines); logLines = logLines.slice(-2000); drawLog(); }
+  } catch {}
+}
+function drawLog() {
+  const only = document.getElementById("onlyapi").checked;
+  const el = document.getElementById("log");
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30;
+  el.innerHTML = logLines.filter(l => !only || !l.text.startsWith("->")).map(l =>
+    `<div class="${l.text.startsWith("<-") ? "in" : ""}">${l.time} [${esc(l.tag)}] ${esc(l.text.replace(/^<-/, "←").replace(/^->/, "→"))}</div>`).join("");
+  if (atBottom) el.scrollTop = el.scrollHeight;
+}
+document.getElementById("onlyapi").onchange = drawLog;
+function copyLog() { navigator.clipboard.writeText(logLines.map(l => `${l.time} [${l.tag}] ${l.text}`).join("\n")); }
+
+load().then(refresh);
+setInterval(refresh, 500);
+setInterval(pollLog, 700);
+pollLog();
+</script>
+</body>
+</html>
