@@ -1,6 +1,8 @@
 # Flex Emulator
 
-> **Please read:** This is an independent hobby project. It is not made, endorsed or supported by FlexRadio Systems or 4O3A; FlexRadio, SmartSDR, Antenna Genius, Tuner Genius and Power Genius are their trademarks. The code was written with AI assistance (Claude) and has only been tested at one station. It comes with **no warranty**: before you rely on it with an amplifier or antenna switching, check that transmit interlock works at your station. Licensed under GPL-3.0 (see below).
+> **Disclaimer:** This is an independent hobby project. It is **not affiliated with, endorsed by or supported by** FlexRadio Systems, Icom, the Hermes Lite project, 4O3A, the Thetis or AetherSDR developers, or anyone else. All product names and trademarks belong to their owners and are used only to describe compatibility.
+>
+> This software was **developed with AI** (Claude, by Anthropic) and has only been tested at one station. **Use it at your own risk.** It comes with no warranty of any kind. Before you rely on it with an amplifier or antenna switching, check that transmit interlock works correctly at your station. Licensed under GPL-3.0 (see below).
 
 Makes a non-Flex radio (IC-7300, Hermes Lite 2 in Thetis, anything with CAT) look like a FlexRadio on your network, so a 4O3A Antenna Genius (and other Flex-aware accessories) follow it.
 
