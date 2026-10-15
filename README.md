@@ -51,4 +51,4 @@ Settings are saved in your user settings folder (`%AppData%\flex-emulator\config
 
 Install Go 1.24 or newer, then run `go build .` in this folder. Run `go test ./...` to run the tests.
 
-Every push to `main` is built and tested on GitHub. Pushing a tag such as `v0.1.1` publishes a release with all the downloads.
+Every push to `main` is built and tested on GitHub. Publishing a release on GitHub (Releases → Draft a new release) builds all the downloads and attaches them to it.
