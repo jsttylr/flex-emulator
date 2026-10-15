@@ -1,5 +1,7 @@
 # Flex Emulator
 
+> **Please read:** This is an independent hobby project. It is not made, endorsed or supported by FlexRadio Systems or 4O3A; FlexRadio, SmartSDR, Antenna Genius, Tuner Genius and Power Genius are their trademarks. The code was written with AI assistance (Claude) and has only been tested at one station. It comes with **no warranty**: before you rely on it with an amplifier or antenna switching, check that transmit interlock works at your station. Licensed under GPL-3.0 (see below).
+
 Makes a non-Flex radio (IC-7300, Hermes Lite 2 in Thetis, anything with CAT) look like a FlexRadio on your network, so a 4O3A Antenna Genius (and other Flex-aware accessories) follow it.
 
 ## How it works
@@ -52,3 +54,9 @@ Settings are saved in your user settings folder (`%AppData%\flex-emulator\config
 Install Go 1.24 or newer, then run `go build .` in this folder. Run `go test ./...` to run the tests.
 
 Every push to `main` is built and tested on GitHub. Publishing a release on GitHub (Releases → Draft a new release) builds all the downloads and attaches them to it.
+
+## License
+
+Copyright (C) 2026 Justin and contributors.
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full text.
