@@ -51,6 +51,28 @@ From the same Releases page:
 
 Settings are saved in your user settings folder (`%AppData%\flex-emulator\config.json` on Windows). A log file, `flex-emulator.log`, sits next to it.
 
+## Running on a server (Docker)
+
+You can run the emulator on an always-on Linux box in the shack (Unraid, a NAS, a Raspberry Pi) instead of a desktop PC. Its inputs that work over the network (TCI, rigctld, Kenwood CAT over TCP) can reach Thetis or another SDR program on any computer the server can reach, including over a WireGuard VPN.
+
+1. Copy [`docker-compose.yml`](docker-compose.yml) to the server and change `FLEXEMU_PASSWORD`.
+2. Run `docker compose up -d`.
+3. Open `http://<server-address>:8992` from any computer. Your browser asks for a user name (anything) and the password.
+
+Things to know:
+
+- **Host networking is required** (`network_mode: host`). The Flex discovery broadcast has to reach the LAN where your Antenna Genius is, and accessories connect to TCP port 4992 on the server. This only works with Docker on Linux, not Docker Desktop on Windows or Mac.
+- Settings and the log are kept in the `./config` folder next to the compose file, so updating the image keeps your setup.
+- The emulator refuses to start the network settings page without a password.
+- **Unraid:** add a container with repository `ghcr.io/jsttylr/flex-emulator:latest`, network type **Host**, a path `/config` mapped to `/mnt/user/appdata/flex-emulator`, and a variable `FLEXEMU_PASSWORD`.
+- A USB radio plugged into the server (for example an IC-7300 on CI-V) can be passed through with `devices:` in the compose file.
+
+| Setting | Meaning | Default in Docker |
+|---|---|---|
+| `FLEXEMU_PASSWORD` | Settings page password | none (required) |
+| `FLEXEMU_LISTEN` | Settings page address and port | `0.0.0.0:8992` |
+| `FLEXEMU_CONFIG` | Settings file location | `/config/config.json` |
+
 ## Building from source
 
 Install Go 1.24 or newer, then run `go build .` in this folder. Run `go test ./...` to run the tests.

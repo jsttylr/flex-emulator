@@ -5,17 +5,20 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
+	"syscall"
 	"time"
 )
 
-var appVersion = "0.1.1"
+var appVersion = "0.2.0"
 
 // Manager owns the running set of emulated radios and rebuilds it when settings change.
 type Manager struct {
@@ -79,8 +82,10 @@ func (m *Manager) Statuses() []RadioStatus {
 }
 
 func main() {
-	noBrowser := flag.Bool("no-browser", false, "don't open the settings page on start")
-	cfgFile := flag.String("config", configPath(), "settings file")
+	noBrowser := flag.Bool("no-browser", envBool("FLEXEMU_NO_BROWSER"), "don't open the settings page on start")
+	cfgFile := flag.String("config", envOr("FLEXEMU_CONFIG", configPath()), "settings file")
+	listen := flag.String("listen", os.Getenv("FLEXEMU_LISTEN"), "address for the settings page, e.g. 0.0.0.0:8992 (default: this computer only)")
+	password := flag.String("password", os.Getenv("FLEXEMU_PASSWORD"), "password for the settings page (required when -listen is not this computer only)")
 	flag.Parse()
 
 	store, err := LoadConfig(*cfgFile)
@@ -88,10 +93,18 @@ func main() {
 		fatal("Flex Emulator can't read its settings file:\n%s\n\n%v", *cfgFile, err)
 	}
 	port := store.Get().WebPort
+	addr := *listen
+	if addr == "" {
+		addr = fmt.Sprintf("127.0.0.1:%d", port)
+	}
+	server := !isLoopback(addr)
+	if server && *password == "" {
+		fatal("The settings page is set to listen on %s, which other computers can reach, but no password is set.\nSet FLEXEMU_PASSWORD (or -password) and start again.", addr)
+	}
 	url := fmt.Sprintf("http://127.0.0.1:%d/", port)
 
 	// Already running? Just show its settings page again.
-	if alreadyRunning(port) {
+	if !server && alreadyRunning(port) {
 		openBrowser(url)
 		return
 	}
@@ -102,22 +115,52 @@ func main() {
 	m.Apply()
 
 	quit := make(chan struct{})
-	if _, err := startWeb(m, port, quit); err != nil {
-		fatal("Flex Emulator can't open its settings page on port %d:\n%v", port, err)
+	opts := webOptions{addr: addr, password: *password, server: server}
+	if err := startWeb(m, opts, quit); err != nil {
+		fatal("Flex Emulator can't open its settings page on %s:\n%v", addr, err)
 	}
-	fmt.Printf("\nSettings page: %s\nLeave this window open. Close it to stop the emulator.\n\n", url)
-	if !*noBrowser {
-		openBrowser(url)
+	if server {
+		logs.Add("app", "settings page on http://%s/ (password protected)", addr)
+	} else {
+		fmt.Printf("\nSettings page: %s\nLeave this window open. Close it to stop the emulator.\n\n", url)
+		if !*noBrowser {
+			openBrowser(url)
+		}
 	}
 
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	select {
 	case <-sig:
 	case <-quit:
 	}
 	logs.Add("app", "stopping")
 	m.StopAll()
+}
+
+func envOr(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+func envBool(key string) bool {
+	v, _ := strconv.ParseBool(os.Getenv(key))
+	return v
+}
+
+// isLoopback reports whether addr ("host:port") only accepts connections from this computer.
+func isLoopback(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func (m *Manager) StopAll() {
