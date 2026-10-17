@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -242,4 +243,52 @@ func waitState(t *testing.T, r *Radio, ok func(RigState) bool) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatalf("state never matched: %+v", r.State())
+}
+
+func TestIsLoopback(t *testing.T) {
+	for addr, want := range map[string]bool{
+		"127.0.0.1:8992": true, "localhost:8992": true, "[::1]:8992": true,
+		"0.0.0.0:8992": false, ":8992": false, "192.168.1.5:8992": false,
+	} {
+		if got := isLoopback(addr); got != want {
+			t.Errorf("isLoopback(%q) = %v, want %v", addr, got, want)
+		}
+	}
+}
+
+func TestServerModePassword(t *testing.T) {
+	ok := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+	h := guard(ok, webOptions{password: "s3cret", server: true})
+	cases := []struct {
+		name, method, pass string
+		header             bool
+		want               int
+	}{
+		{"no password", "GET", "", false, http.StatusUnauthorized},
+		{"wrong password", "GET", "nope", false, http.StatusUnauthorized},
+		{"right password, any host", "GET", "s3cret", false, http.StatusOK},
+		{"change without header", "POST", "s3cret", false, http.StatusForbidden},
+		{"change with header", "POST", "s3cret", true, http.StatusOK},
+	}
+	for _, c := range cases {
+		req := httptest.NewRequest(c.method, "http://shack-server.lan:8992/api/config", nil)
+		if c.pass != "" {
+			req.SetBasicAuth("admin", c.pass)
+		}
+		if c.header {
+			req.Header.Set("X-Flex-Emu", "1")
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != c.want {
+			t.Errorf("%s: got %d, want %d", c.name, rec.Code, c.want)
+		}
+	}
+	// Without server mode, a foreign Host is still refused.
+	local := guard(ok, webOptions{})
+	rec := httptest.NewRecorder()
+	local.ServeHTTP(rec, httptest.NewRequest("GET", "http://evil.example:8992/", nil))
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("local mode foreign host: got %d", rec.Code)
+	}
 }

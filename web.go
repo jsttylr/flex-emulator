@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -15,7 +16,13 @@ import (
 //go:embed web
 var webFiles embed.FS
 
-func startWeb(m *Manager, port int, quit chan struct{}) (string, error) {
+type webOptions struct {
+	addr     string // listen address
+	password string // empty means no login (only allowed on loopback)
+	server   bool   // reachable from other computers
+}
+
+func startWeb(m *Manager, opts webOptions, quit chan struct{}) error {
 	mux := http.NewServeMux()
 	static, _ := fs.Sub(webFiles, "web")
 	mux.Handle("/", http.FileServer(http.FS(static)))
@@ -47,7 +54,7 @@ func startWeb(m *Manager, port int, quit chan struct{}) (string, error) {
 		m.mu.Lock()
 		ip := m.ip
 		m.mu.Unlock()
-		writeJSON(w, map[string]any{"version": appVersion, "ip": ip, "radios": m.Statuses()})
+		writeJSON(w, map[string]any{"version": appVersion, "ip": ip, "server": opts.server, "radios": m.Statuses()})
 	})
 
 	mux.HandleFunc("/api/log", func(w http.ResponseWriter, req *http.Request) {
@@ -108,18 +115,19 @@ func startWeb(m *Manager, port int, quit chan struct{}) (string, error) {
 		writeJSON(w, r.State())
 	})
 
-	// Only listen on this computer by default; the page can change radio settings.
-	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	// By default only this computer can reach the page; server mode needs a password.
+	ln, err := net.Listen("tcp", opts.addr)
 	if err != nil {
-		return "", err
+		return err
 	}
-	go http.Serve(ln, guard(mux))
-	return fmt.Sprintf("http://127.0.0.1:%d/", port), nil
+	go http.Serve(ln, guard(mux, opts))
+	return nil
 }
 
-// guard blocks other web pages from poking the settings API: the Host must be this
-// computer (stops DNS rebinding) and changes need a custom header (forces a CORS preflight we never allow).
-func guard(h http.Handler) http.Handler {
+// guard protects the settings API. Changes always need a custom header, which forces a
+// CORS preflight we never allow, so other web pages can't post to it. On this computer
+// only, the Host must be local (stops DNS rebinding); in server mode a password is required.
+func guard(h http.Handler, opts webOptions) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer func() {
 			if e := recover(); e != nil {
@@ -127,13 +135,23 @@ func guard(h http.Handler) http.Handler {
 				http.Error(w, fmt.Sprintf("internal error: %v", e), http.StatusInternalServerError)
 			}
 		}()
-		host, _, err := net.SplitHostPort(req.Host)
-		if err != nil {
-			host = req.Host
+		if opts.password != "" {
+			_, pass, ok := req.BasicAuth()
+			if !ok || subtle.ConstantTimeCompare([]byte(pass), []byte(opts.password)) != 1 {
+				w.Header().Set("WWW-Authenticate", `Basic realm="Flex Emulator", charset="UTF-8"`)
+				http.Error(w, "password required", http.StatusUnauthorized)
+				return
+			}
 		}
-		if host != "127.0.0.1" && host != "localhost" {
-			http.Error(w, "forbidden", http.StatusForbidden)
-			return
+		if !opts.server {
+			host, _, err := net.SplitHostPort(req.Host)
+			if err != nil {
+				host = req.Host
+			}
+			if host != "127.0.0.1" && host != "localhost" {
+				http.Error(w, "forbidden", http.StatusForbidden)
+				return
+			}
 		}
 		if req.Method != http.MethodGet && req.Header.Get("X-Flex-Emu") != "1" {
 			http.Error(w, "forbidden", http.StatusForbidden)

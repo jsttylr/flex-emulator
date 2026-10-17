@@ -2,7 +2,5 @@
 
 package main
 
-import "fmt"
-import "os"
-
-func showError(msg string) { fmt.Fprintln(os.Stderr, msg) }
+// showError does nothing here: fatal already logs the message to the terminal.
+func showError(msg string) {}
