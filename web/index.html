@@ -51,7 +51,7 @@ details summary { cursor: pointer; color: var(--muted); margin-top: 12px; }
   <span class="sub" id="hdr">Makes your other radios look like a FlexRadio to the Antenna Genius and friends.</span>
 </header>
 <main>
-  <div id="down" class="card bad" style="display:none"><b>The emulator isn't running.</b> Double-click flex-emulator.exe to start it again, then reload this page.</div>
+  <div id="down" class="card bad" style="display:none"><b>The emulator isn't running.</b> Start it again (double-click flex-emulator.exe, or restart the container), then reload this page.</div>
   <div id="live"></div>
 
   <div class="card">
@@ -78,7 +78,7 @@ details summary { cursor: pointer; color: var(--muted); margin-top: 12px; }
 </main>
 <p class="help" style="text-align:center;margin:0 16px 16px">Independent hobby project, not affiliated with FlexRadio, Icom, the Hermes Lite project, 4O3A or anyone else. Developed with AI. Use at your own risk. GPL-3.0.</p>
 <div class="savebar">
-  <button onclick="quitApp()" style="margin-right:auto">Stop emulator</button>
+  <button id="stopbtn" onclick="quitApp()" style="margin-right:auto">Stop emulator</button>
   <span id="savemsg" class="muted"></span>
   <button class="primary" onclick="save()">Save and restart</button>
 </div>
@@ -209,6 +209,8 @@ async function refresh() {
   let st;
   try { st = await api("/api/status"); } catch { document.getElementById("down").style.display = ""; document.getElementById("hdr").textContent = "Not running"; return; }
   document.getElementById("down").style.display = "none";
+  // On a server (Docker) the container's restart policy owns stopping and starting.
+  document.getElementById("stopbtn").style.display = st.server ? "none" : "";
   document.getElementById("hdr").textContent = `v${st.version} · advertising on ${st.ip}`;
   const box = document.getElementById("live");
   const editing = box.contains(document.activeElement) && document.activeElement.tagName === "INPUT";

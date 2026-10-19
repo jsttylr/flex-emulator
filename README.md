@@ -51,6 +51,22 @@ From the same Releases page:
 
 Settings are saved in your user settings folder (`%AppData%\flex-emulator\config.json` on Windows). A log file, `flex-emulator.log`, sits next to it.
 
+## Running on a server (Docker)
+
+You can run the emulator in a container on an always-on Linux machine in the shack (Unraid, a NAS, a Raspberry Pi) instead of a desktop PC. Its network inputs (TCI, rigctld, Kenwood CAT over TCP) can reach Thetis or another SDR program on any computer the server can reach, including over a WireGuard VPN.
+
+Quick start with Docker Compose:
+
+```sh
+curl -O https://raw.githubusercontent.com/jsttylr/flex-emulator/main/docker-compose.yml
+# edit FLEXEMU_PASSWORD in docker-compose.yml, then:
+docker compose up -d
+```
+
+Then open `http://<server-address>:8992` and sign in with any user name and your password.
+
+**The full guide is in [docs/docker.md](docs/docker.md).** It covers Docker Compose, the Unraid template, following a radio over a VPN, updating, ports, security and troubleshooting.
+
 ## Building from source
 
 Install Go 1.24 or newer, then run `go build .` in this folder. Run `go test ./...` to run the tests.

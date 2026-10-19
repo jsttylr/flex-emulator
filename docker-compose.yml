@@ -1,0 +1,20 @@
+# Flex Emulator: makes non-Flex radios look like a FlexRadio to Antenna Genius and friends.
+# Start with:  docker compose up -d
+# Settings:    http://<this-server>:8992  (any user name, the password below)
+# Full guide:  https://github.com/jsttylr/flex-emulator/blob/main/docs/docker.md
+services:
+  flex-emulator:
+    image: ghcr.io/jsttylr/flex-emulator:latest
+    container_name: flex-emulator
+    # Host networking is required: the Flex discovery broadcast has to reach your LAN,
+    # and accessories connect to TCP 4992 on this server. Works with Docker on Linux only.
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      FLEXEMU_PASSWORD: "change-me"   # password for the settings page
+      # FLEXEMU_LISTEN: "0.0.0.0:8992"  # address and port for the settings page
+    volumes:
+      - ./config:/config              # settings and log file live here
+    # USB radios (e.g. IC-7300 on CI-V): pass the serial port through.
+    # devices:
+    #   - /dev/ttyUSB0:/dev/ttyUSB0
