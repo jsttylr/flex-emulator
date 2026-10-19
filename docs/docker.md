@@ -74,9 +74,10 @@ The repository includes an Unraid template.
 1. Open a terminal on the Unraid server (the **>_** icon at the top right) and run:
 
    ```sh
-   wget -O /boot/config/plugins/dockerMan/templates-user/my-flex-emulator.xml \
-     https://raw.githubusercontent.com/jsttylr/flex-emulator/main/unraid/flex-emulator.xml
+   wget -O /boot/config/plugins/dockerMan/templates-user/my-flex-emulator.xml https://raw.githubusercontent.com/jsttylr/flex-emulator/main/unraid/flex-emulator.xml
    ```
+
+   If the pasted command starts with `^[[200~` and fails, the terminal's "bracketed paste" is showing. Run `printf '\e[?2004l'` once, then paste again.
 
 2. Go to **Docker → Add Container**, and pick **flex-emulator** from the **Template** list.
 3. Fill in **Settings page password**. Leave **Network Type** on **Host** and **Settings and log** on `/mnt/user/appdata/flex-emulator` unless you have a reason to change them.
