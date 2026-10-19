@@ -86,6 +86,7 @@ func main() {
 	cfgFile := flag.String("config", envOr("FLEXEMU_CONFIG", configPath()), "settings file")
 	listen := flag.String("listen", os.Getenv("FLEXEMU_LISTEN"), "address for the settings page, e.g. 0.0.0.0:8992 (default: this computer only)")
 	password := flag.String("password", os.Getenv("FLEXEMU_PASSWORD"), "password for the settings page (required when -listen is not this computer only)")
+	healthcheck := flag.Bool("healthcheck", false, "check that a running emulator answers, then exit (for Docker)")
 	flag.Parse()
 
 	store, err := LoadConfig(*cfgFile)
@@ -98,6 +99,9 @@ func main() {
 		addr = fmt.Sprintf("127.0.0.1:%d", port)
 	}
 	server := !isLoopback(addr)
+	if *healthcheck {
+		os.Exit(healthCheck(addr, *password))
+	}
 	if server && *password == "" {
 		fatal("The settings page is set to listen on %s, which other computers can reach, but no password is set.\nSet FLEXEMU_PASSWORD (or -password) and start again.", addr)
 	}
@@ -182,6 +186,33 @@ func alreadyRunning(port int) bool {
 	}
 	resp.Body.Close()
 	return resp.StatusCode == http.StatusOK
+}
+
+// healthCheck asks the running emulator for its status and returns an exit code:
+// 0 when it answers, 1 when it doesn't.
+func healthCheck(addr, password string) int {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return 1
+	}
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "127.0.0.1"
+	}
+	req, _ := http.NewRequest("GET", "http://"+net.JoinHostPort(host, port)+"/api/status", nil)
+	if password != "" {
+		req.SetBasicAuth("healthcheck", password)
+	}
+	resp, err := (&http.Client{Timeout: 3 * time.Second}).Do(req)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "not answering:", err)
+		return 1
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintln(os.Stderr, "settings page answered", resp.Status)
+		return 1
+	}
+	return 0
 }
 
 // setupLogFile keeps a log next to the settings, since the Windows build has no console window.

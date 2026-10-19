@@ -1,6 +1,7 @@
 # Flex Emulator: makes non-Flex radios look like a FlexRadio to Antenna Genius and friends.
 # Start with:  docker compose up -d
 # Settings:    http://<this-server>:8992  (any user name, the password below)
+# Full guide:  https://github.com/jsttylr/flex-emulator/blob/main/docs/docker.md
 services:
   flex-emulator:
     image: ghcr.io/jsttylr/flex-emulator:latest
