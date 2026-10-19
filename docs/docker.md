@@ -77,8 +77,6 @@ The repository includes an Unraid template.
    wget -O /boot/config/plugins/dockerMan/templates-user/my-flex-emulator.xml https://raw.githubusercontent.com/jsttylr/flex-emulator/main/unraid/flex-emulator.xml
    ```
 
-   If the pasted command starts with `^[[200~` and fails, the terminal's "bracketed paste" is showing. Run `printf '\e[?2004l'` once, then paste again.
-
 2. Go to **Docker → Add Container**, and pick **flex-emulator** from the **Template** list.
 3. Fill in **Settings page password**. Leave **Network Type** on **Host** and **Settings and log** on `/mnt/user/appdata/flex-emulator` unless you have a reason to change them.
 4. Click **Apply**. When it's running, click the container's icon and choose **WebUI**.
@@ -166,4 +164,4 @@ Only one program on the server can use TCP 4992. If you emulate more than one ra
 
 **The accessory connects but doesn't follow.** Turn off **Only show what accessories send** in the Activity box, reproduce the problem, click **Copy log**, and open an issue with the log attached.
 
-**USB radio not found.** Add the device to the compose file (`devices:`) or the Unraid template, then pick it under **COM / serial port**. Only one program can use a serial port at a time.
+**USB radio not found.** Add the device to the compose file (`devices:`). On Unraid, edit the container, click **Add another Path, Port, Variable, Label or Device**, choose **Device**, and enter the device path (for example `/dev/ttyUSB0`). Then pick it under **COM / serial port**. Only one program can use a serial port at a time.

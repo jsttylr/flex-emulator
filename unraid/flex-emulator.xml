@@ -23,5 +23,4 @@
   <Config Name="Settings page password" Target="FLEXEMU_PASSWORD" Default="" Mode="" Description="Required. Password for the settings page (any user name works)." Type="Variable" Display="always" Required="true" Mask="true"/>
   <Config Name="Settings and log" Target="/config" Default="/mnt/user/appdata/flex-emulator" Mode="rw" Description="Where config.json and flex-emulator.log are kept." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/flex-emulator</Config>
   <Config Name="Settings page address" Target="FLEXEMU_LISTEN" Default="0.0.0.0:8992" Mode="" Description="Address and port for the settings page. Change the port if 8992 is taken." Type="Variable" Display="advanced" Required="false" Mask="false">0.0.0.0:8992</Config>
-  <Config Name="USB radio (optional)" Target="/dev/ttyUSB0" Default="" Mode="" Description="Only for a radio plugged into this server by USB (e.g. IC-7300 on CI-V). Set to the device path, e.g. /dev/ttyUSB0, or leave empty." Type="Device" Display="advanced" Required="false" Mask="false"/>
 </Container>
