@@ -100,9 +100,9 @@ The emulator only needs to be on the same LAN as the accessories. The link to yo
 
 Example: Thetis runs at a remote site and controls a Hermes Lite 2 in the shack over WireGuard.
 
-1. On the remote PC, set Thetis's TCI server to listen on `0.0.0.0` (or the PC's WireGuard address) instead of `127.0.0.1`, and allow TCP port 40001 through that PC's firewall.
+1. On the remote PC, set Thetis's TCI server to listen on `0.0.0.0` (or the PC's WireGuard address) instead of `127.0.0.1`, and allow TCP port 40001 through that PC's firewall. Windows usually treats a WireGuard tunnel as a Public network, so run this once in an administrator PowerShell: `New-NetFirewallRule -DisplayName "Thetis TCI" -Direction Inbound -Protocol TCP -LocalPort 40001 -Action Allow`
 2. On the emulator's settings page, set the input to **TCI** and **Computer running it** to the remote PC's WireGuard address.
-3. Make sure the server can reach that address. With WireGuard, the remote PC's tunnel address has to be in the shack side's `AllowedIPs`. Test with `ping` from the server.
+3. Make sure the server can reach that address. With WireGuard, the remote PC's tunnel address has to be in the shack side's `AllowedIPs`. Test from the server with `timeout 3 bash -c '</dev/tcp/<pc-address>/40001' && echo OPEN || echo BLOCKED` (ping may fail even when this works, since Windows blocks ping by default).
 
 The VPN adds a little delay before the accessories hear about band changes and transmit. Don't change band and key up at the same moment, and test interlock into a dummy load first.
 
